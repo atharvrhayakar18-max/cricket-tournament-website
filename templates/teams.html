@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cricket Tournament - Teams</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+        }
+
+        .navbar {
+            background-color: #1e3a8a;
+            padding: 18px;
+            text-align: center;
+        }
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin: 0 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .container {
+            width: 90%;
+            margin: 30px auto;
+        }
+
+        .teams {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 20px;
+        }
+
+        .team-card {
+            background-color: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .team-icon {
+            font-size: 45px;
+        }
+
+        .team-card h3 {
+            color: #1e3a8a;
+        }
+
+        .stats {
+            margin-top: 15px;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="navbar">
+        <a href="/">🏠 Home</a>
+        <a href="/teams">🏏 Teams</a>
+        <a href="/players">👤 Players</a>
+        <a href="/matches">🏟️ Matches</a>
+        <a href="/points">🏆 Points Table</a>
+    </div>
+
+    <div class="container">
+
+        <h2>🏏 Cricket Teams</h2>
+
+        <a href="/add_team" Add New Team</a>
+
+        <div class="teams">
+
+            {% for team in teams %}
+
+            <div class="team-card">
+
+                <div class="team-icon">🏏</div>
+
+                <h3>{{ team[1] }}</h3>
+
+                <div class="stats">
+                    <div>🏟️ Matches: {{ team[2] }}</div>
+                    <div>✅ Wins: {{ team[3] }}</div>
+                    <div>❌ Losses: {{ team[4] }}</div>
+                    <div>🏆 Points: {{ team[5] }}</div>
+                    <div>📊 Run Rate: {{ team[6] }}</div>
+                </div>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+</body>
+</html>

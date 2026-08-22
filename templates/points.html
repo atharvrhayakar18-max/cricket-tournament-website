@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cricket Tournament - Points Table</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+        }
+
+        .navbar {
+            background-color: #1e3a8a;
+            padding: 18px;
+            text-align: center;
+        }
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin: 0 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .container {
+            width: 90%;
+            margin: 30px auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #1e3a8a;
+            color: white;
+        }
+
+        tr:hover {
+            background-color: #f1f5ff;
+        }
+
+        .points {
+            font-weight: bold;
+            color: #1e3a8a;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="navbar">
+        <a href="/">🏠 Home</a>
+        <a href="/teams">🏏 Teams</a>
+        <a href="/players">👤 Players</a>
+        <a href="/matches">🏟️ Matches</a>
+        <a href="/points">🏆 Points Table</a>
+    </div>
+
+    <div class="container">
+
+        <h2>🏆 Points Table</h2>
+
+        <table>
+
+            <tr>
+                <th>Rank</th>
+                <th>Team</th>
+                <th>Matches</th>
+                <th>Wins</th>
+                <th>Losses</th>
+                <th>Points</th>
+                <th>Run Rate</th>
+            </tr>
+
+            {% for team in teams %}
+
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ team[1] }}</td>
+                <td>{{ team[2] }}</td>
+                <td>{{ team[6] }}</td>
+                <td>{{ team[3] }}</td>
+                <td class="points">{{ team[4] }}</td>
+                <td>{{ team[5] }}</td>
+            </tr>
+
+            {% endfor %}
+
+        </table>
+
+    </div>
+
+</body>
+</html>

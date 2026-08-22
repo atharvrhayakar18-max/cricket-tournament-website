@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cricket Tournament - Matches</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+        }
+
+        .navbar {
+            background-color: #1e3a8a;
+            padding: 18px;
+            text-align: center;
+        }
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin: 0 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .container {
+            width: 90%;
+            margin: 30px auto;
+        }
+
+        .match-card {
+            background: white;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .match-card h3 {
+            color: #1e3a8a;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="navbar">
+        <a href="/">🏠 Home</a>
+        <a href="/teams">🏏 Teams</a>
+        <a href="/players">👤 Players</a>
+        <a href="/matches">🏟️ Matches</a>
+        <a href="#">🏆 Points Table</a>
+    </div>
+
+    <div class="container">
+
+        <h2>🏟️ Cricket Matches</h2>
+
+        {% for match in matches %}
+
+        <div class="match-card">
+
+            <h3>🏏 Match {{ match[0] }}</h3>
+
+            <p>Team 1: {{ match[1] }}</p>
+            <p>Team 2: {{ match[2] }}</p>
+
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+</body>
+</html>
