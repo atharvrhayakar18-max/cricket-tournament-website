@@ -4,13 +4,16 @@ import os
 
 app = Flask(__name__)
 
-db = mysql.connector.connect(
-    host= os.environ["MYSQLHOST"],
-    port=int(os.environ["MYSQLPORT"]),
-    user=os.environ["MYSQLUSER"],
-    password=os.environ["MYSQLPASSWORD"],
-    database=os.environ["MYSQLDATABASE"]
-)
+
+# Create a new MySQL connection when needed
+def get_db():
+    return mysql.connector.connect(
+        host=os.environ["MYSQLHOST"],
+        port=int(os.environ["MYSQLPORT"]),
+        user=os.environ["MYSQLUSER"],
+        password=os.environ["MYSQLPASSWORD"],
+        database=os.environ["MYSQLDATABASE"]
+    )
 
 
 @app.route("/")
@@ -20,45 +23,49 @@ def home():
 
 @app.route("/teams")
 def teams():
+    db = get_db()
     cursor = db.cursor()
 
     cursor.execute("SELECT * FROM teams")
-
     teams = cursor.fetchall()
 
     cursor.close()
+    db.close()
 
     return render_template("teams.html", teams=teams)
 
 
 @app.route("/players")
 def players():
+    db = get_db()
     cursor = db.cursor()
 
     cursor.execute("SELECT * FROM players")
-
     players = cursor.fetchall()
 
     cursor.close()
+    db.close()
 
     return render_template("players.html", players=players)
 
 
 @app.route("/matches")
 def matches():
+    db = get_db()
     cursor = db.cursor()
 
     cursor.execute("SELECT * FROM matches")
-
     matches = cursor.fetchall()
 
     cursor.close()
+    db.close()
 
     return render_template("matches.html", matches=matches)
 
 
 @app.route("/points")
 def points():
+    db = get_db()
     cursor = db.cursor()
 
     cursor.execute("""
@@ -69,6 +76,7 @@ def points():
     teams = cursor.fetchall()
 
     cursor.close()
+    db.close()
 
     return render_template("points.html", teams=teams)
 
@@ -80,6 +88,7 @@ def add_team():
 
         team_name = request.form["team_name"]
 
+        db = get_db()
         cursor = db.cursor()
 
         cursor.execute("""
@@ -91,6 +100,7 @@ def add_team():
         db.commit()
 
         cursor.close()
+        db.close()
 
         return redirect("/teams")
 
@@ -98,4 +108,5 @@ def add_team():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0",port=5000,debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
