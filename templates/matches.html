@@ -19,17 +19,15 @@
         .navbar a {
             color: white;
             text-decoration: none;
-            margin: 0 20px;
+            margin: 0 15px;
             font-size: 18px;
             font-weight: bold;
         }
 
-        .navbar a {
-            color: white;
-            text-decoration: none;
-            margin: 0 20px;
-            font-size: 18px;
-            font-weight: bold;
+        .admin {
+            background-color: #dc2626;
+            padding: 8px 12px;
+            border-radius: 6px;
         }
 
         .container {
@@ -53,7 +51,7 @@
             color: #1e3a8a;
         }
 
-        input, select {
+        input {
             width: 100%;
             padding: 12px;
             margin: 8px 0 15px 0;
@@ -70,10 +68,6 @@
             border-radius: 6px;
             cursor: pointer;
             font-size: 16px;
-        }
-
-        button:hover {
-            background-color: #162d6b;
         }
 
         .match-card {
@@ -97,6 +91,7 @@
         .score {
             font-size: 22px;
             font-weight: bold;
+            margin-left: 10px;
         }
 
         .overs {
@@ -124,11 +119,14 @@
         <a href="/players">👤 Players</a>
         <a href="/matches">🏟️ Matches</a>
         <a href="/points">🏆 Points Table</a>
+        <a href="/login" class="admin">🔐 Admin</a>
     </div>
 
     <div class="container">
 
-        <!-- ADD MATCH FORM -->
+        <!-- ONLY ADMIN CAN SEE THIS -->
+        {% if session.get("admin_logged_in") %}
+
         <div class="form-box">
 
             <h3>➕ Add New Match</h3>
@@ -170,8 +168,10 @@
 
         </div>
 
+        {% endif %}
 
-        <!-- MATCH LIST -->
+
+        <!-- MATCH LIST - EVERYONE CAN SEE -->
         <h2>🏟️ Cricket Matches</h2>
 
         {% if matches %}
