@@ -40,12 +40,12 @@ def teams():
         ORDER BY points DESC
     """)
 
-    teams = cursor.fetchall()
+    teams_data = cursor.fetchall()
 
     cursor.close()
     db.close()
 
-    return render_template("teams.html", teams=teams)
+    return render_template("teams.html", teams=teams_data)
 
 
 # =========================
@@ -57,12 +57,12 @@ def players():
     cursor = db.cursor()
 
     cursor.execute("SELECT * FROM players")
-    players = cursor.fetchall()
+    players_data = cursor.fetchall()
 
     cursor.close()
     db.close()
 
-    return render_template("players.html", players=players)
+    return render_template("players.html", players=players_data)
 
 
 # =========================
@@ -77,49 +77,72 @@ def matches():
     if request.method == "POST":
 
         match_id = request.form["match_id"]
-        team1 = request.form["team1"]
-        team2 = request.form["team2"]
-        winner = request.form["winner"]
+        team1 = request.form["team1"].strip()
+        team2 = request.form["team2"].strip()
+        winner = request.form["winner"].strip()
         match_date = request.form["match_date"]
 
-        # -------------------------
+        team1_score = int(request.form.get("team1_score", 0))
+        team1_overs = float(request.form.get("team1_overs", 0))
+        team2_score = int(request.form.get("team2_score", 0))
+        team2_overs = float(request.form.get("team2_overs", 0))
+
+        # =========================
         # ADD MATCH
-        # -------------------------
+        # =========================
         cursor.execute("""
             INSERT INTO matches
-            (match_id, team1, team2, winner, match_date)
-            VALUES (%s, %s, %s, %s, %s)
+            (
+                match_id,
+                team1,
+                team2,
+                winner,
+                match_date,
+                team1_score,
+                team1_overs,
+                team2_score,
+                team2_overs
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             match_id,
             team1,
             team2,
             winner,
-            match_date
+            match_date,
+            team1_score,
+            team1_overs,
+            team2_score,
+            team2_overs
         ))
 
-        # -------------------------
+        # =========================
         # UPDATE WINNER
-        # -------------------------
+        # Case-insensitive
+        # =========================
         cursor.execute("""
             UPDATE teams
             SET
                 matches = matches + 1,
                 wins = wins + 1,
                 points = points + 2
-            WHERE teams_name = %s
+            WHERE LOWER(teams_name) = LOWER(%s)
         """, (winner,))
 
-        # -------------------------
+        # =========================
         # UPDATE LOSER
-        # -------------------------
-        loser = team2 if winner == team1 else team1
+        # =========================
+        if winner.lower() == team1.lower():
+            loser = team2
+        else:
+            loser = team1
 
         cursor.execute("""
             UPDATE teams
             SET
                 matches = matches + 1,
                 losses = losses + 1
-            WHERE teams_name = %s
+            WHERE LOWER(teams_name) = LOWER(%s)
         """, (loser,))
 
         db.commit()
@@ -129,21 +152,34 @@ def matches():
 
         return redirect("/matches")
 
-    # -------------------------
+
+    # =========================
     # SHOW MATCHES
-    # -------------------------
+    # =========================
     cursor.execute("""
-        SELECT *
+        SELECT
+            match_id,
+            team1,
+            team2,
+            winner,
+            match_date,
+            team1_score,
+            team1_overs,
+            team2_score,
+            team2_overs
         FROM matches
         ORDER BY match_date DESC
     """)
 
-    matches = cursor.fetchall()
+    matches_data = cursor.fetchall()
 
     cursor.close()
     db.close()
 
-    return render_template("matches.html", matches=matches)
+    return render_template(
+        "matches.html",
+        matches=matches_data
+    )
 
 
 # =========================
@@ -158,15 +194,18 @@ def points():
     cursor.execute("""
         SELECT *
         FROM teams
-        ORDER BY points DESC
+        ORDER BY points DESC, wins DESC, run_rate DESC
     """)
 
-    teams = cursor.fetchall()
+    teams_data = cursor.fetchall()
 
     cursor.close()
     db.close()
 
-    return render_template("points.html", teams=teams)
+    return render_template(
+        "points.html",
+        teams=teams_data
+    )
 
 
 # =========================
@@ -177,15 +216,22 @@ def add_team():
 
     if request.method == "POST":
 
-        team_name = request.form["team_name"]
+        team_name = request.form["team_name"].strip()
 
         db = get_db()
         cursor = db.cursor()
 
         cursor.execute("""
             INSERT INTO teams
-            (teams_name, matches, losses, points, run_rate, wins)
-            VALUES (%s, 0, 0, 0, 0.00, 0)
+            (
+                teams_name,
+                matches,
+                wins,
+                losses,
+                points,
+                run_rate
+            )
+            VALUES (%s, 0, 0, 0, 0, 0)
         """, (team_name,))
 
         db.commit()
@@ -199,7 +245,7 @@ def add_team():
 
 
 # =========================
-# RUN APPLICATION
+# RUN APP
 # =========================
 if __name__ == "__main__":
 

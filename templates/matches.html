@@ -29,6 +29,11 @@
             margin: 30px auto;
         }
 
+        h2 {
+            text-align: center;
+            color: #1e3a8a;
+        }
+
         .match-card {
             background: white;
             padding: 25px;
@@ -37,8 +42,42 @@
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
 
-        .match-card h3 {
+        .match-title {
             color: #1e3a8a;
+            margin-bottom: 20px;
+        }
+
+        .team {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 12px 0;
+        }
+
+        .score {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .overs {
+            color: #666;
+            margin-left: 8px;
+        }
+
+        .winner {
+            color: green;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 20px;
+        }
+
+        .date {
+            color: #777;
+        }
+
+        .no-match {
+            text-align: center;
+            color: #777;
+            font-size: 18px;
         }
     </style>
 </head>
@@ -50,25 +89,62 @@
         <a href="/teams">🏏 Teams</a>
         <a href="/players">👤 Players</a>
         <a href="/matches">🏟️ Matches</a>
-        <a href="#">🏆 Points Table</a>
+        <a href="/points">🏆 Points Table</a>
     </div>
 
     <div class="container">
 
         <h2>🏟️ Cricket Matches</h2>
 
-        {% for match in matches %}
+        {% if matches %}
 
-        <div class="match-card">
+            {% for match in matches %}
 
-            <h3>🏏 Match {{ match[0] }}</h3>
+            <div class="match-card">
 
-            <p>Team 1: {{ match[1] }}</p>
-            <p>Team 2: {{ match[2] }}</p>
+                <h3 class="match-title">
+                    🏏 Match {{ match[0] }}
+                </h3>
 
-        </div>
+                <div class="team">
+                    {{ match[1] }}
+                    <span class="score">
+                        {{ match[5] }}/
+                    </span>
+                    <span class="overs">
+                        ({{ match[6] }} overs)
+                    </span>
+                </div>
 
-        {% endfor %}
+                <div class="team">
+                    {{ match[2] }}
+                    <span class="score">
+                        {{ match[7] }}/
+                    </span>
+                    <span class="overs">
+                        ({{ match[8] }} overs)
+                    </span>
+                </div>
+
+                <p class="winner">
+                    🏆 Winner: {{ match[3] }}
+                </p>
+
+                <p class="date">
+                    📅 Match Date: {{ match[4] }}
+                </p>
+
+            </div>
+
+            {% endfor %}
+
+        {% else %}
+
+            <p class="no-match">
+                No matches available.
+            </p>
+
+        {% endif %}
 
     </div>
 
