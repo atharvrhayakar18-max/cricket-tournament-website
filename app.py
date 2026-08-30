@@ -4,8 +4,13 @@ import os
 
 app = Flask(__name__)
 
-# Secret key for login session
-app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key")
+# =========================
+# SECRET KEY
+# =========================
+app.secret_key = os.environ.get(
+    "SECRET_KEY",
+    "change-this-secret-key"
+)
 
 
 # =========================
@@ -74,7 +79,7 @@ def logout():
 
 
 # =========================
-# ADMIN PAGE
+# ADMIN PANEL
 # =========================
 @app.route("/admin")
 def admin():
@@ -95,9 +100,16 @@ def teams():
     cursor = db.cursor()
 
     cursor.execute("""
-        SELECT *
+        SELECT
+            team_id,
+            teams_name,
+            matches,
+            wins,
+            losses,
+            points,
+            run_rate
         FROM teams
-        ORDER BY points DESC
+        ORDER BY points DESC, wins DESC
     """)
 
     teams_data = cursor.fetchall()
@@ -112,24 +124,129 @@ def teams():
 
 
 # =========================
+# ADD TEAM
+# =========================
+@app.route("/add_team", methods=["GET", "POST"])
+def add_team():
+
+    if not admin_required():
+        return redirect("/login")
+
+    if request.method == "POST":
+
+        team_name = request.form["team_name"].strip()
+
+        db = get_db()
+        cursor = db.cursor()
+
+        cursor.execute("""
+            INSERT INTO teams
+            (
+                teams_name,
+                matches,
+                wins,
+                losses,
+                points,
+                run_rate
+            )
+            VALUES (%s, 0, 0, 0, 0, 0)
+        """, (team_name,))
+
+        db.commit()
+
+        cursor.close()
+        db.close()
+
+        return redirect("/teams")
+
+    return render_template("add_team.html")
+
+
+# =========================
 # PLAYERS
 # =========================
-@app.route("/players")
+@app.route("/players", methods=["GET", "POST"])
 def players():
 
     db = get_db()
     cursor = db.cursor()
 
-    cursor.execute("SELECT * FROM players")
+    # -------------------------
+    # ADD PLAYER - ADMIN ONLY
+    # -------------------------
+    if request.method == "POST":
+
+        if not admin_required():
+            cursor.close()
+            db.close()
+            return redirect("/login")
+
+        player_name = request.form["player_name"].strip()
+        team_id = int(request.form["team_id"])
+        runs = int(request.form.get("runs", 0))
+        wickets = int(request.form.get("wickets", 0))
+
+        cursor.execute("""
+            INSERT INTO players
+            (
+                player_name,
+                team_id,
+                runs,
+                wickets
+            )
+            VALUES (%s, %s, %s, %s)
+        """, (
+            player_name,
+            team_id,
+            runs,
+            wickets
+        ))
+
+        db.commit()
+
+        cursor.close()
+        db.close()
+
+        return redirect("/players")
+
+    # -------------------------
+    # SHOW PLAYERS
+    # -------------------------
+    cursor.execute("""
+        SELECT
+            players.player_id,
+            players.player_name,
+            teams.teams_name,
+            players.runs,
+            players.wickets
+        FROM players
+        LEFT JOIN teams
+        ON players.team_id = teams.team_id
+        ORDER BY players.runs DESC
+    """)
 
     players_data = cursor.fetchall()
+
+    # -------------------------
+    # SHOW TEAMS IN DROPDOWN
+    # -------------------------
+    cursor.execute("""
+        SELECT
+            team_id,
+            teams_name
+        FROM teams
+        ORDER BY teams_name
+    """)
+
+    teams_data = cursor.fetchall()
 
     cursor.close()
     db.close()
 
     return render_template(
         "players.html",
-        players=players_data
+        players=players_data,
+        teams=teams_data
     )
 
 
@@ -139,7 +256,9 @@ def players():
 @app.route("/matches", methods=["GET", "POST"])
 def matches():
 
-    # Only admin can ADD match
+    # -------------------------
+    # ADD MATCH - ADMIN ONLY
+    # -------------------------
     if request.method == "POST":
 
         if not admin_required():
@@ -148,18 +267,32 @@ def matches():
         db = get_db()
         cursor = db.cursor()
 
-        match_id = request.form["match_id"]
+        match_id = int(request.form["match_id"])
+
         team1 = request.form["team1"].strip()
         team2 = request.form["team2"].strip()
         winner = request.form["winner"].strip()
         match_date = request.form["match_date"]
 
-        team1_score = int(request.form.get("team1_score", 0))
-        team1_overs = float(request.form.get("team1_overs", 0))
-        team2_score = int(request.form.get("team2_score", 0))
-        team2_overs = float(request.form.get("team2_overs", 0))
+        team1_score = int(
+            request.form.get("team1_score", 0)
+        )
 
-        # Add match
+        team1_overs = float(
+            request.form.get("team1_overs", 0)
+        )
+
+        team2_score = int(
+            request.form.get("team2_score", 0)
+        )
+
+        team2_overs = float(
+            request.form.get("team2_overs", 0)
+        )
+
+        # -------------------------
+        # INSERT MATCH
+        # -------------------------
         cursor.execute("""
             INSERT INTO matches
             (
@@ -173,7 +306,8 @@ def matches():
                 team2_score,
                 team2_overs
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES
+            (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """, (
             match_id,
             team1,
@@ -186,7 +320,9 @@ def matches():
             team2_overs
         ))
 
-        # Winner update
+        # -------------------------
+        # UPDATE WINNER
+        # -------------------------
         cursor.execute("""
             UPDATE teams
             SET
@@ -196,13 +332,17 @@ def matches():
             WHERE LOWER(teams_name) = LOWER(%s)
         """, (winner,))
 
-        # Find loser
+        # -------------------------
+        # FIND LOSER
+        # -------------------------
         if winner.lower() == team1.lower():
             loser = team2
         else:
             loser = team1
 
-        # Loser update
+        # -------------------------
+        # UPDATE LOSER
+        # -------------------------
         cursor.execute("""
             UPDATE teams
             SET
@@ -218,7 +358,9 @@ def matches():
 
         return redirect("/matches")
 
-    # Show matches to everyone
+    # -------------------------
+    # SHOW MATCHES
+    # -------------------------
     db = get_db()
     cursor = db.cursor()
 
@@ -258,9 +400,19 @@ def points():
     cursor = db.cursor()
 
     cursor.execute("""
-        SELECT *
+        SELECT
+            team_id,
+            teams_name,
+            matches,
+            wins,
+            losses,
+            points,
+            run_rate
         FROM teams
-        ORDER BY points DESC, wins DESC, run_rate DESC
+        ORDER BY
+            points DESC,
+            wins DESC,
+            run_rate DESC
     """)
 
     teams_data = cursor.fetchall()
@@ -275,51 +427,13 @@ def points():
 
 
 # =========================
-# ADD TEAM
-# =========================
-@app.route("/add_team", methods=["GET", "POST"])
-def add_team():
-
-    # Only admin
-    if not admin_required():
-        return redirect("/login")
-
-    if request.method == "POST":
-
-        team_name = request.form["team_name"].strip()
-
-        db = get_db()
-        cursor = db.cursor()
-
-        cursor.execute("""
-            INSERT INTO teams
-            (
-                teams_name,
-                matches,
-                wins,
-                losses,
-                points,
-                run_rate
-            )
-            VALUES (%s, 0, 0, 0, 0, 0)
-        """, (team_name,))
-
-        db.commit()
-
-        cursor.close()
-        db.close()
-
-        return redirect("/teams")
-
-    return render_template("add_team.html")
-
-
-# =========================
 # RUN APPLICATION
 # =========================
 if __name__ == "__main__":
 
-    port = int(os.environ.get("PORT", 5000))
+    port = int(
+        os.environ.get("PORT", 5000)
+    )
 
     app.run(
         host="0.0.0.0",

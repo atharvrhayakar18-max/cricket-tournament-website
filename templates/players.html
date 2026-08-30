@@ -19,9 +19,15 @@
         .navbar a {
             color: white;
             text-decoration: none;
-            margin: 0 20px;
+            margin: 0 15px;
             font-size: 18px;
             font-weight: bold;
+        }
+
+        .admin {
+            background-color: #dc2626;
+            padding: 8px 12px;
+            border-radius: 6px;
         }
 
         .container {
@@ -29,15 +35,56 @@
             margin: 30px auto;
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
+        h2 {
+            color: #1e3a8a;
+        }
+
+        .form-box {
             background: white;
+            padding: 25px;
+            margin-bottom: 30px;
+            border-radius: 12px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
 
+        .form-box h3 {
+            color: #1e3a8a;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0 15px 0;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #1e3a8a;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
         th, td {
-            padding: 15px;
+            padding: 14px;
             text-align: center;
             border-bottom: 1px solid #ddd;
         }
@@ -47,8 +94,14 @@
             color: white;
         }
 
-        tr:hover {
-            background-color: #f1f5ff;
+        .runs {
+            font-weight: bold;
+            color: #1e3a8a;
+        }
+
+        .wickets {
+            font-weight: bold;
+            color: #15803d;
         }
     </style>
 </head>
@@ -61,18 +114,95 @@
         <a href="/players">👤 Players</a>
         <a href="/matches">🏟️ Matches</a>
         <a href="/points">🏆 Points Table</a>
+        <a href="/login" class="admin">🔐 Admin</a>
     </div>
 
     <div class="container">
 
-        <h2>👤 Player Statistics</h2>
+        <!-- ========================= -->
+        <!-- ADD PLAYER - ADMIN ONLY -->
+        <!-- ========================= -->
+
+        {% if session.get("admin_logged_in") %}
+
+        <div class="form-box">
+
+            <h3>➕ Add New Player</h3>
+
+            <form method="POST">
+
+                <label>Player Name</label>
+
+                <input
+                    type="text"
+                    name="player_name"
+                    placeholder="Enter player name"
+                    required
+                >
+
+                <label>Select Team</label>
+
+                <select name="team_id" required>
+
+                    <option value="">
+                        -- Select Team --
+                    </option>
+
+                    {% for team in teams %}
+
+                    <option value="{{ team[0] }}">
+                        {{ team[1] }}
+                    </option>
+
+                    {% endfor %}
+
+                </select>
+
+                <label>Runs</label>
+
+                <input
+                    type="number"
+                    name="runs"
+                    value="0"
+                    min="0"
+                    required
+                >
+
+                <label>Wickets</label>
+
+                <input
+                    type="number"
+                    name="wickets"
+                    value="0"
+                    min="0"
+                    required
+                >
+
+                <button type="submit">
+                    👤 Add Player
+                </button>
+
+            </form>
+
+        </div>
+
+        {% endif %}
+
+
+        <!-- ========================= -->
+        <!-- PLAYER STATISTICS -->
+        <!-- ========================= -->
+
+        <h2>📊 Player Statistics</h2>
+
+        {% if players %}
 
         <table>
 
             <tr>
                 <th>Player ID</th>
                 <th>Player Name</th>
-                <th>Team ID</th>
+                <th>Team</th>
                 <th>Runs</th>
                 <th>Wickets</th>
             </tr>
@@ -80,16 +210,38 @@
             {% for player in players %}
 
             <tr>
-                <td>{{ player[0] }}</td>
-                <td>{{ player[1] }}</td>
-                <td>{{ player[2] }}</td>
-                <td>{{ player[4] }}</td>
-                <td>{{ player[3] }}</td>
+
+                <td>
+                    {{ player[0] }}
+                </td>
+
+                <td>
+                    {{ player[1] }}
+                </td>
+
+                <td>
+                    {{ player[2] }}
+                </td>
+
+                <td class="runs">
+                    {{ player[3] }}
+                </td>
+
+                <td class="wickets">
+                    {{ player[4] }}
+                </td>
+
             </tr>
 
             {% endfor %}
 
         </table>
+
+        {% else %}
+
+        <p>No players available.</p>
+
+        {% endif %}
 
     </div>
 
