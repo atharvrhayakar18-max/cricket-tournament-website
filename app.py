@@ -5,7 +5,9 @@ import os
 app = Flask(__name__)
 
 
-# Create a new MySQL connection when needed
+# =========================
+# DATABASE CONNECTION
+# =========================
 def get_db():
     return mysql.connector.connect(
         host=os.environ["MYSQLHOST"],
@@ -16,17 +18,28 @@ def get_db():
     )
 
 
+# =========================
+# HOME
+# =========================
 @app.route("/")
 def home():
     return render_template("home.html")
 
 
+# =========================
+# TEAMS
+# =========================
 @app.route("/teams")
 def teams():
     db = get_db()
     cursor = db.cursor()
 
-    cursor.execute("SELECT * FROM teams")
+    cursor.execute("""
+        SELECT *
+        FROM teams
+        ORDER BY points DESC
+    """)
+
     teams = cursor.fetchall()
 
     cursor.close()
@@ -35,6 +48,9 @@ def teams():
     return render_template("teams.html", teams=teams)
 
 
+# =========================
+# PLAYERS
+# =========================
 @app.route("/players")
 def players():
     db = get_db()
@@ -49,12 +65,79 @@ def players():
     return render_template("players.html", players=players)
 
 
-@app.route("/matches")
+# =========================
+# MATCHES
+# =========================
+@app.route("/matches", methods=["GET", "POST"])
 def matches():
+
     db = get_db()
     cursor = db.cursor()
 
-    cursor.execute("SELECT * FROM matches")
+    if request.method == "POST":
+
+        match_id = request.form["match_id"]
+        team1 = request.form["team1"]
+        team2 = request.form["team2"]
+        winner = request.form["winner"]
+        match_date = request.form["match_date"]
+
+        # -------------------------
+        # ADD MATCH
+        # -------------------------
+        cursor.execute("""
+            INSERT INTO matches
+            (match_id, team1, team2, winner, match_date)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (
+            match_id,
+            team1,
+            team2,
+            winner,
+            match_date
+        ))
+
+        # -------------------------
+        # UPDATE WINNER
+        # -------------------------
+        cursor.execute("""
+            UPDATE teams
+            SET
+                matches = matches + 1,
+                wins = wins + 1,
+                points = points + 2
+            WHERE teams_name = %s
+        """, (winner,))
+
+        # -------------------------
+        # UPDATE LOSER
+        # -------------------------
+        loser = team2 if winner == team1 else team1
+
+        cursor.execute("""
+            UPDATE teams
+            SET
+                matches = matches + 1,
+                losses = losses + 1
+            WHERE teams_name = %s
+        """, (loser,))
+
+        db.commit()
+
+        cursor.close()
+        db.close()
+
+        return redirect("/matches")
+
+    # -------------------------
+    # SHOW MATCHES
+    # -------------------------
+    cursor.execute("""
+        SELECT *
+        FROM matches
+        ORDER BY match_date DESC
+    """)
+
     matches = cursor.fetchall()
 
     cursor.close()
@@ -63,13 +146,18 @@ def matches():
     return render_template("matches.html", matches=matches)
 
 
+# =========================
+# POINTS TABLE
+# =========================
 @app.route("/points")
 def points():
+
     db = get_db()
     cursor = db.cursor()
 
     cursor.execute("""
-        SELECT * FROM teams
+        SELECT *
+        FROM teams
         ORDER BY points DESC
     """)
 
@@ -81,6 +169,9 @@ def points():
     return render_template("points.html", teams=teams)
 
 
+# =========================
+# ADD TEAM
+# =========================
 @app.route("/add_team", methods=["GET", "POST"])
 def add_team():
 
@@ -93,7 +184,7 @@ def add_team():
 
         cursor.execute("""
             INSERT INTO teams
-            (tams_name, matches, losses, points, run_rate, wins)
+            (teams_name, matches, losses, points, run_rate, wins)
             VALUES (%s, 0, 0, 0, 0.00, 0)
         """, (team_name,))
 
@@ -107,6 +198,14 @@ def add_team():
     return render_template("add_team.html")
 
 
+# =========================
+# RUN APPLICATION
+# =========================
 if __name__ == "__main__":
+
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+
+    app.run(
+        host="0.0.0.0",
+        port=port
+    )
