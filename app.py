@@ -42,21 +42,23 @@ def home():
 
 
 # =========================
-# LOGIN
+# ADMIN LOGIN
 # =========================
 @app.route("/login", methods=["GET", "POST"])
 def login():
 
     if request.method == "POST":
 
-        username = request.form["username"]
+        username = request.form["username"].strip()
         password = request.form["password"]
 
-        admin_username = os.environ.get("ADMIN_USERNAME")
-        admin_password = os.environ.get("ADMIN_PASSWORD")
+        admin_username = os.environ.get("ADMIN_USERNAME", "")
+        admin_password = os.environ.get("ADMIN_PASSWORD", "")
 
         if username == admin_username and password == admin_password:
+
             session["admin_logged_in"] = True
+
             return redirect("/admin")
 
         return render_template(
@@ -109,7 +111,7 @@ def teams():
             points,
             run_rate
         FROM teams
-        ORDER BY points DESC, wins DESC
+        ORDER BY points DESC, wins DESC, run_rate DESC
     """)
 
     teams_data = cursor.fetchall()
@@ -125,6 +127,7 @@ def teams():
 
 # =========================
 # ADD TEAM
+# ADMIN ONLY
 # =========================
 @app.route("/add_team", methods=["GET", "POST"])
 def add_team():
@@ -149,7 +152,8 @@ def add_team():
                 points,
                 run_rate
             )
-            VALUES (%s, 0, 0, 0, 0, 0)
+            VALUES
+            (%s, 0, 0, 0, 0, 0)
         """, (team_name,))
 
         db.commit()
@@ -172,19 +176,31 @@ def players():
     cursor = db.cursor()
 
     # -------------------------
-    # ADD PLAYER - ADMIN ONLY
+    # ADD PLAYER
+    # ADMIN ONLY
     # -------------------------
     if request.method == "POST":
 
         if not admin_required():
+
             cursor.close()
             db.close()
+
             return redirect("/login")
 
         player_name = request.form["player_name"].strip()
-        team_id = int(request.form["team_id"])
-        runs = int(request.form.get("runs", 0))
-        wickets = int(request.form.get("wickets", 0))
+
+        team_id = int(
+            request.form["team_id"]
+        )
+
+        runs = int(
+            request.form.get("runs", 0)
+        )
+
+        wickets = int(
+            request.form.get("wickets", 0)
+        )
 
         cursor.execute("""
             INSERT INTO players
@@ -194,7 +210,8 @@ def players():
                 runs,
                 wickets
             )
-            VALUES (%s, %s, %s, %s)
+            VALUES
+            (%s, %s, %s, %s)
         """, (
             player_name,
             team_id,
@@ -209,9 +226,11 @@ def players():
 
         return redirect("/players")
 
+
     # -------------------------
-    # SHOW PLAYERS
+    # GET PLAYERS
     # -------------------------
+
     cursor.execute("""
         SELECT
             players.player_id,
@@ -227,9 +246,11 @@ def players():
 
     players_data = cursor.fetchall()
 
+
     # -------------------------
-    # SHOW TEAMS IN DROPDOWN
+    # TEAMS FOR DROPDOWN
     # -------------------------
+
     cursor.execute("""
         SELECT
             team_id,
@@ -256,9 +277,10 @@ def players():
 @app.route("/matches", methods=["GET", "POST"])
 def matches():
 
-    # -------------------------
-    # ADD MATCH - ADMIN ONLY
-    # -------------------------
+    # =========================
+    # ADD MATCH
+    # ADMIN ONLY
+    # =========================
     if request.method == "POST":
 
         if not admin_required():
@@ -267,35 +289,159 @@ def matches():
         db = get_db()
         cursor = db.cursor()
 
-        match_id = int(request.form["match_id"])
+        try:
 
-        team1 = request.form["team1"].strip()
-        team2 = request.form["team2"].strip()
-        winner = request.form["winner"].strip()
-        match_date = request.form["match_date"]
+            match_id = int(
+                request.form["match_id"]
+            )
 
-        team1_score = int(
-            request.form.get("team1_score", 0)
-        )
+            team1 = request.form["team1"].strip()
+            team2 = request.form["team2"].strip()
+            winner = request.form["winner"].strip()
+            match_date = request.form["match_date"]
 
-        team1_overs = float(
-            request.form.get("team1_overs", 0)
-        )
+            team1_score = int(
+                request.form.get("team1_score", 0)
+            )
 
-        team2_score = int(
-            request.form.get("team2_score", 0)
-        )
+            team1_overs = float(
+                request.form.get("team1_overs", 0)
+            )
 
-        team2_overs = float(
-            request.form.get("team2_overs", 0)
-        )
+            team2_score = int(
+                request.form.get("team2_score", 0)
+            )
 
-        # -------------------------
-        # INSERT MATCH
-        # -------------------------
-        cursor.execute("""
-            INSERT INTO matches
-            (
+            team2_overs = float(
+                request.form.get("team2_overs", 0)
+            )
+
+
+            # =========================
+            # CHECK TEAMS
+            # =========================
+
+            cursor.execute("""
+                SELECT
+                    team_id,
+                    teams_name
+                FROM teams
+                WHERE LOWER(teams_name) IN
+                (
+                    LOWER(%s),
+                    LOWER(%s)
+                )
+            """, (
+                team1,
+                team2
+            ))
+
+            team_rows = cursor.fetchall()
+
+            if len(team_rows) != 2:
+
+                return (
+                    "Error: Team names database "
+                    "मधल्या names प्रमाणेच टाका."
+                )
+
+
+            # =========================
+            # CHECK WINNER
+            # =========================
+
+            if (
+                winner.lower() != team1.lower()
+                and
+                winner.lower() != team2.lower()
+            ):
+
+                return (
+                    "Error: Winner हा Team 1 "
+                    "किंवा Team 2 पैकी एक असला पाहिजे."
+                )
+
+
+            # =========================
+            # OVERS CONVERSION
+            # =========================
+
+            def convert_overs(overs):
+
+                whole_overs = int(overs)
+
+                balls = round(
+                    (overs - whole_overs) * 10
+                )
+
+                if balls > 5:
+                    balls = 5
+
+                return whole_overs + (
+                    balls / 6
+                )
+
+
+            actual_team1_overs = convert_overs(
+                team1_overs
+            )
+
+            actual_team2_overs = convert_overs(
+                team2_overs
+            )
+
+
+            # =========================
+            # RUN RATE
+            # =========================
+
+            if actual_team1_overs > 0:
+
+                team1_run_rate = (
+                    team1_score /
+                    actual_team1_overs
+                )
+
+            else:
+
+                team1_run_rate = 0
+
+
+            if actual_team2_overs > 0:
+
+                team2_run_rate = (
+                    team2_score /
+                    actual_team2_overs
+                )
+
+            else:
+
+                team2_run_rate = 0
+
+
+            # =========================
+            # INSERT MATCH
+            # =========================
+
+            cursor.execute("""
+                INSERT INTO matches
+                (
+                    match_id,
+                    team1,
+                    team2,
+                    winner,
+                    match_date,
+                    team1_score,
+                    team1_overs,
+                    team2_score,
+                    team2_overs
+                )
+                VALUES
+                (
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s
+                )
+            """, (
                 match_id,
                 team1,
                 team2,
@@ -305,62 +451,100 @@ def matches():
                 team1_overs,
                 team2_score,
                 team2_overs
-            )
-            VALUES
-            (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (
-            match_id,
-            team1,
-            team2,
-            winner,
-            match_date,
-            team1_score,
-            team1_overs,
-            team2_score,
-            team2_overs
-        ))
+            ))
 
-        # -------------------------
-        # UPDATE WINNER
-        # -------------------------
-        cursor.execute("""
-            UPDATE teams
-            SET
-                matches = matches + 1,
-                wins = wins + 1,
-                points = points + 2
-            WHERE LOWER(teams_name) = LOWER(%s)
-        """, (winner,))
 
-        # -------------------------
-        # FIND LOSER
-        # -------------------------
-        if winner.lower() == team1.lower():
-            loser = team2
-        else:
-            loser = team1
+            # =========================
+            # UPDATE WINNER
+            # =========================
 
-        # -------------------------
-        # UPDATE LOSER
-        # -------------------------
-        cursor.execute("""
-            UPDATE teams
-            SET
-                matches = matches + 1,
-                losses = losses + 1
-            WHERE LOWER(teams_name) = LOWER(%s)
-        """, (loser,))
+            if winner.lower() == team1.lower():
 
-        db.commit()
+                winner_run_rate = (
+                    team1_run_rate
+                )
+
+                loser = team2
+
+                loser_run_rate = (
+                    team2_run_rate
+                )
+
+            else:
+
+                winner_run_rate = (
+                    team2_run_rate
+                )
+
+                loser = team1
+
+                loser_run_rate = (
+                    team1_run_rate
+                )
+
+
+            # =========================
+            # WINNER UPDATE
+            # =========================
+
+            cursor.execute("""
+                UPDATE teams
+                SET
+                    matches = matches + 1,
+                    wins = wins + 1,
+                    points = points + 2,
+                    run_rate = %s
+                WHERE LOWER(teams_name)
+                    = LOWER(%s)
+            """, (
+                winner_run_rate,
+                winner
+            ))
+
+
+            # =========================
+            # LOSER UPDATE
+            # =========================
+
+            cursor.execute("""
+                UPDATE teams
+                SET
+                    matches = matches + 1,
+                    losses = losses + 1,
+                    run_rate = %s
+                WHERE LOWER(teams_name)
+                    = LOWER(%s)
+            """, (
+                loser_run_rate,
+                loser
+            ))
+
+
+            # =========================
+            # SAVE
+            # =========================
+
+            db.commit()
+
+        except Exception as e:
+
+            db.rollback()
+
+            cursor.close()
+            db.close()
+
+            return "Error: " + str(e)
 
         cursor.close()
         db.close()
 
         return redirect("/matches")
 
-    # -------------------------
+
+    # =========================
     # SHOW MATCHES
-    # -------------------------
+    # =========================
+
     db = get_db()
     cursor = db.cursor()
 
