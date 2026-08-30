@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Panel</title>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 700px;
+            margin: 50px auto;
+            text-align: center;
+        }
+
+        .box {
+            background: white;
+            padding: 30px;
+            margin: 20px 0;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        a {
+            display: inline-block;
+            padding: 12px 20px;
+            margin: 8px;
+            background: #1e3a8a;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+        }
+
+        .logout {
+            background: #dc2626;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>🔐 Admin Panel</h1>
+
+    <div class="box">
+
+        <h2>🏏 Tournament Management</h2>
+
+        <a href="/add_team">➕ Add Team</a>
+
+        <a href="/matches">🏟️ Add Match</a>
+
+    </div>
+
+    <a href="/logout" class="logout">
+        Logout
+    </a>
+
+</div>
+
+</body>
+</html>

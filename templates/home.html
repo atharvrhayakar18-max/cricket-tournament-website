@@ -19,9 +19,15 @@
         .navbar a {
             color: white;
             text-decoration: none;
-            margin: 0 20px;
+            margin: 0 15px;
             font-size: 18px;
             font-weight: bold;
+        }
+
+        .admin-link {
+            background-color: #dc2626;
+            padding: 8px 14px;
+            border-radius: 6px;
         }
 
         .hero {
@@ -48,6 +54,17 @@
             text-decoration: none;
             margin-top: 20px;
         }
+
+        .admin-button {
+            display: inline-block;
+            background-color: #dc2626;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 8px;
+            text-decoration: none;
+            margin-top: 20px;
+            margin-left: 10px;
+        }
     </style>
 </head>
 
@@ -56,17 +73,38 @@
     <div class="navbar">
         <a href="/">🏠 Home</a>
         <a href="/teams">🏏 Teams</a>
-        <a href="#">👤 Players</a>
-        <a href="#">🏟️ Matches</a>
-        <a href="#">🏆 Points Table</a>
+        <a href="/players">👤 Players</a>
+        <a href="/matches">🏟️ Matches</a>
+        <a href="/points">🏆 Points Table</a>
+        <a href="/login" class="admin-link">🔐 Admin Login</a>
     </div>
 
     <div class="hero">
+
         <h1>🏏 Cricket Tournament</h1>
 
-        <p>Welcome to our Cricket Tournament Management Website!</p>
+        <p>
+            Welcome to our Cricket Tournament Management Website!
+        </p>
 
-        <a href="/teams" class="button">View Teams</a>
+        <a href="/teams" class="button">
+            View Teams
+        </a>
+
+        <a href="/matches" class="button">
+            View Matches
+        </a>
+
+        <a href="/points" class="button">
+            View Points Table
+        </a>
+
+        <br>
+
+        <a href="/login" class="admin-button">
+            🔐 Admin Login
+        </a>
+
     </div>
 
 </body>
