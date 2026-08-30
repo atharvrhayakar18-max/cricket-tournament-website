@@ -24,14 +24,56 @@
             font-weight: bold;
         }
 
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin: 0 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
         .container {
             width: 90%;
             margin: 30px auto;
         }
 
         h2 {
-            text-align: center;
             color: #1e3a8a;
+        }
+
+        .form-box {
+            background: white;
+            padding: 25px;
+            margin-bottom: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .form-box h3 {
+            color: #1e3a8a;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0 15px 0;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #1e3a8a;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #162d6b;
         }
 
         .match-card {
@@ -44,7 +86,6 @@
 
         .match-title {
             color: #1e3a8a;
-            margin-bottom: 20px;
         }
 
         .team {
@@ -67,17 +108,10 @@
             color: green;
             font-weight: bold;
             font-size: 18px;
-            margin-top: 20px;
         }
 
         .date {
             color: #777;
-        }
-
-        .no-match {
-            text-align: center;
-            color: #777;
-            font-size: 18px;
         }
     </style>
 </head>
@@ -94,6 +128,50 @@
 
     <div class="container">
 
+        <!-- ADD MATCH FORM -->
+        <div class="form-box">
+
+            <h3>➕ Add New Match</h3>
+
+            <form method="POST">
+
+                <label>Match ID</label>
+                <input type="number" name="match_id" required>
+
+                <label>Team 1</label>
+                <input type="text" name="team1" placeholder="Example: england" required>
+
+                <label>Team 1 Score</label>
+                <input type="number" name="team1_score" min="0" value="0" required>
+
+                <label>Team 1 Overs</label>
+                <input type="number" name="team1_overs" min="0" step="0.1" value="0" required>
+
+                <label>Team 2</label>
+                <input type="text" name="team2" placeholder="Example: shivpremi" required>
+
+                <label>Team 2 Score</label>
+                <input type="number" name="team2_score" min="0" value="0" required>
+
+                <label>Team 2 Overs</label>
+                <input type="number" name="team2_overs" min="0" step="0.1" value="0" required>
+
+                <label>Winner</label>
+                <input type="text" name="winner" placeholder="Example: shivpremi" required>
+
+                <label>Match Date</label>
+                <input type="date" name="match_date" required>
+
+                <button type="submit">
+                    🏏 Add Match
+                </button>
+
+            </form>
+
+        </div>
+
+
+        <!-- MATCH LIST -->
         <h2>🏟️ Cricket Matches</h2>
 
         {% if matches %}
@@ -108,9 +186,11 @@
 
                 <div class="team">
                     {{ match[1] }}
+
                     <span class="score">
-                        {{ match[5] }}/
+                        {{ match[5] }}
                     </span>
+
                     <span class="overs">
                         ({{ match[6] }} overs)
                     </span>
@@ -118,9 +198,11 @@
 
                 <div class="team">
                     {{ match[2] }}
+
                     <span class="score">
-                        {{ match[7] }}/
+                        {{ match[7] }}
                     </span>
+
                     <span class="overs">
                         ({{ match[8] }} overs)
                     </span>
@@ -140,9 +222,7 @@
 
         {% else %}
 
-            <p class="no-match">
-                No matches available.
-            </p>
+            <p>No matches available.</p>
 
         {% endif %}
 
