@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live Scoring - Admin</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+        }
+
+        .navbar {
+            background: #1e3a8a;
+            padding: 18px;
+            text-align: center;
+        }
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: bold;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 800px;
+            margin: 30px auto;
+        }
+
+        .box {
+            background: white;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,.1);
+        }
+
+        h2 {
+            color: #1e3a8a;
+        }
+
+        select,
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0 15px;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 15px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 8px;
+            background: #1e3a8a;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .run-buttons {
+            display: flex;
+            flex-wrap: wrap;
+        }
+
+        .run-buttons button {
+            min-width: 60px;
+        }
+
+        .live {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="navbar">
+    <a href="/admin">🔐 Admin</a>
+    <a href="/matches">🏟️ Matches</a>
+    <a href="/points">🏆 Points</a>
+    <a href="/logout">🚪 Logout</a>
+</div>
+
+<div class="container">
+
+    <div class="box">
+
+        <h2>
+            🔴 LIVE SCORING
+        </h2>
+
+        <h3>
+            {{ match[1] }} vs {{ match[2] }}
+        </h3>
+
+        <p>
+            Match ID: {{ match[0] }}
+        </p>
+
+        <p class="live">
+            🔴 LIVE
+        </p>
+
+    </div>
+
+
+    <div class="box">
+
+        <h2>🏏 Add Ball</h2>
+
+        <form method="POST"
+              action="/admin/live/{{ match[0] }}/ball">
+
+            <label>Batting Team</label>
+
+            <select name="batting_team" required>
+
+                <option value="{{ match[1] }}">
+                    {{ match[1] }}
+                </option>
+
+                <option value="{{ match[2] }}">
+                    {{ match[2] }}
+                </option>
+
+            </select>
+
+
+            <label>Striker</label>
+
+            <select name="striker_id" required>
+
+                <option value="">
+                    Select Striker
+                </option>
+
+                {% for player in players %}
+
+                <option value="{{ player[0] }}">
+                    {{ player[1] }}
+                </option>
+
+                {% endfor %}
+
+            </select>
+
+
+            <label>Non-Striker</label>
+
+            <select name="non_striker_id" required>
+
+                <option value="">
+                    Select Non-Striker
+                </option>
+
+                {% for player in players %}
+
+                <option value="{{ player[0] }}">
+                    {{ player[1] }}
+                </option>
+
+                {% endfor %}
+
+            </select>
+
+
+            <label>Bowler</label>
+
+            <select name="bowler_id" required>
+
+                <option value="">
+                    Select Bowler
+                </option>
+
+                {% for player in players %}
+
+                <option value="{{ player[0] }}">
+                    {{ player[1] }}
+                </option>
+
+                {% endfor %}
+
+            </select>
+
+
+            <label>Runs</label>
+
+            <div class="run-buttons">
+
+                <button type="submit"
+                        name="runs"
+                        value="0">
+                    0
+                </button>
+
+                <button type="submit"
+                        name="runs"
+                        value="1">
+                    1
+                </button>
+
+                <button type="submit"
+                        name="runs"
+                        value="2">
+                    2
+                </button>
+
+                <button type="submit"
+                        name="runs"
+                        value="3">
+                    3
+                </button>
+
+                <button type="submit"
+                        name="runs"
+                        value="4">
+                    4
+                </button>
+
+                <button type="submit"
+                        name="runs"
+                        value="6">
+                    6
+                </button>
+
+            </div>
+
+
+            <label>Extra Type</label>
+
+            <select name="extra_type">
+
+                <option value="">
+                    No Extra
+                </option>
+
+                <option value="wide">
+                    Wide
+                </option>
+
+                <option value="no_ball">
+                    No Ball
+                </option>
+
+                <option value="bye">
+                    Bye
+                </option>
+
+                <option value="leg_bye">
+                    Leg Bye
+                </option>
+
+            </select>
+
+
+            <label>Extra Runs</label>
+
+            <input
+                type="number"
+                name="extra_runs"
+                value="0"
+                min="0"
+            >
+
+
+            <label>
+                <input
+                    type="checkbox"
+                    name="wicket"
+                >
+                Wicket
+            </label>
+
+
+            <br>
+
+            <button type="submit">
+                🏏 ADD BALL
+            </button>
+
+        </form>
+
+    </div>
+
+
+    <div class="box">
+
+        <h2>📱 Public Live Score</h2>
+
+        <a href="/live/{{ match[0] }}"
+           target="_blank">
+
+            Open Live Score
+
+        </a>
+
+    </div>
+
+</div>
+
+</body>
+</html>

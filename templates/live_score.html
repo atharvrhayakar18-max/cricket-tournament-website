@@ -1,0 +1,111 @@
+<!-- ================= BATTING SCORECARD ================= -->
+
+<div class="scorecard">
+
+    <h2>🏏 Batting</h2>
+
+    <table>
+
+        <tr>
+            <th>Player</th>
+            <th>R</th>
+            <th>B</th>
+            <th>4s</th>
+            <th>6s</th>
+            <th>SR</th>
+        </tr>
+
+        {% for player in batting_scorecard %}
+
+        <tr>
+
+            <td>{{ player[1] }}</td>
+
+            <td>{{ player[2] }}</td>
+
+            <td>{{ player[3] }}</td>
+
+            <td>{{ player[4] }}</td>
+
+            <td>{{ player[5] }}</td>
+
+            <td>
+
+                {% if player[3] > 0 %}
+
+                    {{ "%.2f"|format((player[2] / player[3]) * 100) }}
+
+                {% else %}
+
+                    0.00
+
+                {% endif %}
+
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+    </table>
+
+</div>
+
+
+<!-- ================= BOWLING SCORECARD ================= -->
+
+<div class="scorecard">
+
+    <h2>🎯 Bowling</h2>
+
+    <table>
+
+        <tr>
+            <th>Bowler</th>
+            <th>Overs</th>
+            <th>Runs</th>
+            <th>Wickets</th>
+            <th>Economy</th>
+        </tr>
+
+        {% for bowler in bowling_scorecard %}
+
+        <tr>
+
+            <td>{{ bowler[1] }}</td>
+
+
+            <td>
+
+                {{ bowler[2] // 6 }}.{{ bowler[2] % 6 }}
+
+            </td>
+
+
+            <td>{{ bowler[3] }}</td>
+
+
+            <td>{{ bowler[4] }}</td>
+
+
+            <td>
+
+                {% if bowler[2] > 0 %}
+
+                    {{ "%.2f"|format(bowler[3] / (bowler[2] / 6)) }}
+
+                {% else %}
+
+                    0.00
+
+                {% endif %}
+
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+    </table>
+
+</div>
