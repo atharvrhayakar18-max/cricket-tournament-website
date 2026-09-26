@@ -1,0 +1,2063 @@
+from flask import Flask, render_template, request, redirect, session
+import mysql.connector
+import os
+
+app = Flask(__name__)
+
+app.secret_key = os.environ.get(
+    "SECRET_KEY",
+    "change-this-secret-key"
+)
+
+db_initialized = False
+
+
+# =====================================
+# DATABASE CONNECTION
+# =====================================
+
+def get_db():
+
+    return mysql.connector.connect(
+
+        host=os.environ["MYSQLHOST"],
+
+        port=int(
+            os.environ["MYSQLPORT"]
+        ),
+
+        user=os.environ["MYSQLUSER"],
+
+        password=os.environ["MYSQLPASSWORD"],
+
+        database=os.environ["MYSQLDATABASE"]
+
+    )
+
+
+# =====================================
+# CREATE / UPDATE DATABASE TABLES
+# =====================================
+
+def create_live_tables():
+
+    db = get_db()
+    cursor = db.cursor()
+
+    # -------------------------
+    # ADD STATUS COLUMN
+    # -------------------------
+
+    try:
+
+        cursor.execute("""
+            ALTER TABLE matches
+            ADD COLUMN status VARCHAR(20)
+            NOT NULL DEFAULT 'upcoming'
+        """)
+
+    except mysql.connector.Error:
+
+        pass
+
+
+    # -------------------------
+    # CREATE DELIVERIES TABLE
+    # -------------------------
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS deliveries (
+
+            delivery_id INT AUTO_INCREMENT PRIMARY KEY,
+
+            match_id INT NOT NULL,
+
+            batting_team VARCHAR(100),
+
+            over_number INT NOT NULL,
+
+            ball_number INT NOT NULL,
+
+            striker_id INT NOT NULL,
+
+            non_striker_id INT NOT NULL,
+
+            bowler_id INT NOT NULL,
+
+            runs INT DEFAULT 0,
+
+            extra_type VARCHAR(20) DEFAULT NULL,
+
+            extra_runs INT DEFAULT 0,
+
+            wicket BOOLEAN DEFAULT FALSE
+
+        )
+    """)
+
+
+    # -------------------------
+    # ADD BATTING TEAM COLUMN
+    # FOR OLD DELIVERIES TABLE
+    # -------------------------
+
+    try:
+
+        cursor.execute("""
+            ALTER TABLE deliveries
+            ADD COLUMN batting_team VARCHAR(100)
+        """)
+
+    except mysql.connector.Error:
+
+        pass
+
+
+    db.commit()
+
+    cursor.close()
+    db.close()
+
+
+# =====================================
+# INITIALIZE DATABASE
+# =====================================
+
+@app.before_request
+def initialize_database():
+
+    global db_initialized
+
+    if not db_initialized:
+
+        try:
+
+            create_live_tables()
+
+            db_initialized = True
+
+        except Exception as e:
+
+            print("Database initialization error:", e)
+
+
+# =====================================
+# ADMIN CHECK
+# =====================================
+
+def admin_required():
+
+    return session.get(
+        "admin_logged_in"
+    ) is True
+
+
+# =====================================
+# HOME
+# =====================================
+
+@app.route("/")
+def home():
+
+    return render_template(
+        "home.html"
+    )
+
+
+# =====================================
+# LOGIN
+# =====================================
+
+@app.route(
+    "/login",
+    methods=["GET", "POST"]
+)
+def login():
+
+    if request.method == "POST":
+
+        username = request.form[
+            "username"
+        ].strip()
+
+        password = request.form[
+            "password"
+        ]
+
+        admin_username = os.environ.get(
+            "ADMIN_USERNAME",
+            ""
+        )
+
+        admin_password = os.environ.get(
+            "ADMIN_PASSWORD",
+            ""
+        )
+
+
+        if (
+            username == admin_username
+            and password == admin_password
+        ):
+
+            session[
+                "admin_logged_in"
+            ] = True
+
+            return redirect(
+                "/admin"
+            )
+
+
+        return render_template(
+
+            "login.html",
+
+            error="Invalid username or password"
+
+        )
+
+
+    return render_template(
+        "login.html"
+    )
+
+
+# =====================================
+# LOGOUT
+# =====================================
+
+@app.route("/logout")
+def logout():
+
+    session.clear()
+
+    return redirect("/")
+
+
+# =====================================
+# ADMIN PANEL
+# =====================================
+
+@app.route("/admin")
+def admin():
+
+    if not admin_required():
+
+        return redirect(
+            "/login"
+        )
+
+    return render_template(
+        "admin.html"
+    )
+
+
+# =====================================
+# TEAMS
+# =====================================
+
+@app.route("/teams")
+def teams():
+
+    db = get_db()
+
+    cursor = db.cursor()
+
+    cursor.execute("""
+        SELECT
+
+            team_id,
+            teams_name,
+            matches,
+            wins,
+            losses,
+            points,
+            run_rate
+
+        FROM teams
+
+        ORDER BY
+            points DESC,
+            wins DESC,
+            run_rate DESC
+    """)
+
+    teams_data = cursor.fetchall()
+
+    cursor.close()
+
+    db.close()
+
+
+    return render_template(
+
+        "teams.html",
+
+        teams=teams_data
+
+    )
+
+
+# =====================================
+# ADD TEAM
+# =====================================
+
+@app.route(
+    "/add_team",
+    methods=["GET", "POST"]
+)
+def add_team():
+
+    if not admin_required():
+
+        return redirect(
+            "/login"
+        )
+
+
+    if request.method == "POST":
+
+        team_name = request.form[
+            "team_name"
+        ].strip()
+
+
+        db = get_db()
+
+        cursor = db.cursor()
+
+
+        try:
+
+            cursor.execute("""
+                INSERT INTO teams
+                (
+                    teams_name,
+                    matches,
+                    wins,
+                    losses,
+                    points,
+                    run_rate
+                )
+
+                VALUES
+                (
+                    %s, 0, 0, 0, 0, 0
+                )
+            """, (
+                team_name,
+            ))
+
+            db.commit()
+
+
+        except Exception as e:
+
+            db.rollback()
+
+            return "Error: " + str(e)
+
+
+        finally:
+
+            cursor.close()
+
+            db.close()
+
+
+        return redirect(
+            "/teams"
+        )
+
+
+    return render_template(
+        "add_team.html"
+    )
+
+
+# =====================================
+# PLAYERS
+# =====================================
+
+@app.route(
+    "/players",
+    methods=["GET", "POST"]
+)
+def players():
+
+    db = get_db()
+
+    cursor = db.cursor()
+
+
+    # -------------------------
+    # ADD PLAYER
+    # -------------------------
+
+    if request.method == "POST":
+
+        if not admin_required():
+
+            cursor.close()
+
+            db.close()
+
+            return redirect(
+                "/login"
+            )
+
+
+        player_name = request.form[
+            "player_name"
+        ].strip()
+
+
+        team_id = int(
+            request.form[
+                "team_id"
+            ]
+        )
+
+
+        runs = int(
+            request.form.get(
+                "runs",
+                0
+            )
+        )
+
+
+        wickets = int(
+            request.form.get(
+                "wickets",
+                0
+            )
+        )
+
+
+        cursor.execute("""
+            INSERT INTO players
+            (
+                player_name,
+                team_id,
+                runs,
+                wickets
+            )
+
+            VALUES
+            (
+                %s, %s, %s, %s
+            )
+        """, (
+
+            player_name,
+            team_id,
+            runs,
+            wickets
+
+        ))
+
+
+        db.commit()
+
+        cursor.close()
+
+        db.close()
+
+
+        return redirect(
+            "/players"
+        )
+
+
+    # -------------------------
+    # SHOW PLAYERS
+    # -------------------------
+
+    cursor.execute("""
+        SELECT
+
+            players.player_id,
+
+            players.player_name,
+
+            teams.teams_name,
+
+            players.runs,
+
+            players.wickets
+
+        FROM players
+
+        LEFT JOIN teams
+
+        ON players.team_id = teams.team_id
+
+        ORDER BY players.runs DESC
+    """)
+
+
+    players_data = cursor.fetchall()
+
+
+    # -------------------------
+    # TEAM DROPDOWN
+    # -------------------------
+
+    cursor.execute("""
+        SELECT
+
+            team_id,
+
+            teams_name
+
+        FROM teams
+
+        ORDER BY teams_name
+    """)
+
+
+    teams_data = cursor.fetchall()
+
+
+    cursor.close()
+
+    db.close()
+
+
+    return render_template(
+
+        "players.html",
+
+        players=players_data,
+
+        teams=teams_data
+
+    )
+
+
+# =====================================
+# DELETE TEAM
+# =====================================
+
+@app.route("/delete_team/<int:team_id>", methods=["POST"])
+def delete_team(team_id):
+
+    if not admin_required():
+        return redirect("/login")
+
+    db = get_db()
+    cursor = db.cursor()
+
+    try:
+        cursor.execute(
+            "SELECT COUNT(*) FROM players WHERE team_id = %s",
+            (team_id,)
+        )
+
+        if cursor.fetchone()[0] > 0:
+            return "Cannot delete team while players are assigned to it."
+
+        cursor.execute(
+            "DELETE FROM teams WHERE team_id = %s",
+            (team_id,)
+        )
+
+        db.commit()
+        return redirect("/teams")
+
+    except Exception as e:
+        db.rollback()
+        return "Error: " + str(e)
+
+    finally:
+        cursor.close()
+        db.close()
+
+
+# =====================================
+# DELETE PLAYER
+# =====================================
+
+@app.route("/delete_player/<int:player_id>", methods=["POST"])
+def delete_player(player_id):
+
+    if not admin_required():
+        return redirect("/login")
+
+    db = get_db()
+    cursor = db.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM deliveries
+            WHERE striker_id = %s
+               OR non_striker_id = %s
+               OR bowler_id = %s
+        """, (player_id, player_id, player_id))
+
+        if cursor.fetchone()[0] > 0:
+            return "Cannot delete a player already used in a match."
+
+        cursor.execute(
+            "DELETE FROM players WHERE player_id = %s",
+            (player_id,)
+        )
+
+        db.commit()
+        return redirect("/players")
+
+    except Exception as e:
+        db.rollback()
+        return "Error: " + str(e)
+
+    finally:
+        cursor.close()
+        db.close()
+
+
+# =====================================
+# MATCHES
+# =====================================
+
+@app.route(
+    "/matches",
+    methods=["GET", "POST"]
+)
+def matches():
+
+    # -------------------------
+    # ADD MATCH
+    # -------------------------
+
+    if request.method == "POST":
+
+        if not admin_required():
+
+            return redirect(
+                "/login"
+            )
+
+
+        db = get_db()
+
+        cursor = db.cursor()
+
+
+        try:
+
+            match_id = int(
+                request.form[
+                    "match_id"
+                ]
+            )
+
+
+            team1 = request.form[
+                "team1"
+            ].strip()
+
+
+            team2 = request.form[
+                "team2"
+            ].strip()
+
+
+            winner = request.form.get(
+                "winner",
+                ""
+            ).strip()
+
+
+            match_date = request.form[
+                "match_date"
+            ]
+
+
+            team1_score = int(
+                request.form.get(
+                    "team1_score",
+                    0
+                )
+            )
+
+
+            team1_overs = float(
+                request.form.get(
+                    "team1_overs",
+                    0
+                )
+            )
+
+
+            team2_score = int(
+                request.form.get(
+                    "team2_score",
+                    0
+                )
+            )
+
+
+            team2_overs = float(
+                request.form.get(
+                    "team2_overs",
+                    0
+                )
+            )
+
+
+            if winner == "":
+
+                winner = None
+
+
+            cursor.execute("""
+                INSERT INTO matches
+                (
+                    match_id,
+                    team1,
+                    team2,
+                    winner,
+                    match_date,
+                    team1_score,
+                    team1_overs,
+                    team2_score,
+                    team2_overs,
+                    status
+                )
+
+                VALUES
+                (
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s,
+                    'upcoming'
+                )
+            """, (
+
+                match_id,
+                team1,
+                team2,
+                winner,
+                match_date,
+                team1_score,
+                team1_overs,
+                team2_score,
+                team2_overs
+
+            ))
+
+
+            db.commit()
+
+
+        except Exception as e:
+
+            db.rollback()
+
+            return "Error: " + str(e)
+
+
+        finally:
+
+            cursor.close()
+
+            db.close()
+
+
+        return redirect(
+            "/matches"
+        )
+
+
+    # -------------------------
+    # SHOW MATCHES
+    # -------------------------
+
+    db = get_db()
+
+    cursor = db.cursor()
+
+
+    cursor.execute("""
+        SELECT
+
+            match_id,
+
+            team1,
+
+            team2,
+
+            winner,
+
+            match_date,
+
+            team1_score,
+
+            team1_overs,
+
+            team2_score,
+
+            team2_overs,
+
+            status
+
+        FROM matches
+
+        ORDER BY
+            match_date DESC,
+            match_id DESC
+    """)
+
+
+    matches_data = cursor.fetchall()
+
+
+    cursor.close()
+
+    db.close()
+
+
+    return render_template(
+
+        "matches.html",
+
+        matches=matches_data
+
+    )
+
+
+# =====================================
+# START LIVE MATCH
+# =====================================
+
+@app.route(
+    "/start_live/<int:match_id>"
+)
+def start_live(match_id):
+
+    if not admin_required():
+
+        return redirect(
+            "/login"
+        )
+
+
+    db = get_db()
+
+    cursor = db.cursor()
+
+
+    cursor.execute("""
+        UPDATE matches
+
+        SET status = 'live'
+
+        WHERE match_id = %s
+    """, (
+        match_id,
+    ))
+
+
+    db.commit()
+
+    cursor.close()
+
+    db.close()
+
+
+    return redirect(
+        "/admin/live/" + str(match_id)
+    )
+
+
+# =====================================
+# ADMIN LIVE SCORE PAGE
+# =====================================
+
+@app.route(
+    "/admin/live/<int:match_id>"
+)
+def admin_live(match_id):
+
+    if not admin_required():
+
+        return redirect(
+            "/login"
+        )
+
+
+    db = get_db()
+
+    cursor = db.cursor()
+
+
+    # -------------------------
+    # GET MATCH
+    # -------------------------
+
+    cursor.execute("""
+        SELECT
+
+            match_id,
+
+            team1,
+
+            team2,
+
+            winner,
+
+            match_date,
+
+            team1_score,
+
+            team1_overs,
+
+            team2_score,
+
+            team2_overs,
+
+            status
+
+        FROM matches
+
+        WHERE match_id = %s
+    """, (
+        match_id,
+    ))
+
+
+    match = cursor.fetchone()
+
+
+    if not match:
+
+        cursor.close()
+
+        db.close()
+
+        return "Match not found."
+
+
+    # -------------------------
+    # GET TEAM PLAYERS
+    # -------------------------
+
+    cursor.execute("""
+        SELECT
+
+            players.player_id,
+
+            players.player_name,
+
+            teams.teams_name
+
+        FROM players
+
+        INNER JOIN teams
+
+        ON players.team_id = teams.team_id
+
+        WHERE
+
+            LOWER(teams.teams_name)
+            =
+            LOWER(%s)
+
+            OR
+
+            LOWER(teams.teams_name)
+            =
+            LOWER(%s)
+
+        ORDER BY players.player_name
+    """, (
+
+        match[1],
+
+        match[2]
+
+    ))
+
+
+    all_players = cursor.fetchall()
+
+
+    team1_players = []
+
+    team2_players = []
+
+
+    for player in all_players:
+
+        if player[2].lower() == match[1].lower():
+
+            team1_players.append(
+                player
+            )
+
+        elif player[2].lower() == match[2].lower():
+
+            team2_players.append(
+                player
+            )
+
+
+    cursor.close()
+
+    db.close()
+
+
+    return render_template(
+
+        "admin_live_score.html",
+
+        match=match,
+
+        team1_players=team1_players,
+
+        team2_players=team2_players
+
+    )
+
+
+# =====================================
+# ADD BALL
+# =====================================
+
+@app.route(
+    "/admin/live/<int:match_id>/ball",
+    methods=["POST"]
+)
+def add_ball(match_id):
+
+    if not admin_required():
+
+        return redirect(
+            "/login"
+        )
+
+
+    db = get_db()
+
+    cursor = db.cursor()
+
+
+    try:
+
+        # -------------------------
+        # GET FORM DATA
+        # -------------------------
+
+        batting_team = request.form[
+            "batting_team"
+        ].strip()
+
+
+        striker_id = int(
+            request.form[
+                "striker_id"
+            ]
+        )
+
+
+        non_striker_id = int(
+            request.form[
+                "non_striker_id"
+            ]
+        )
+
+
+        bowler_id = int(
+            request.form[
+                "bowler_id"
+            ]
+        )
+
+
+        runs = int(
+            request.form.get(
+                "runs",
+                0
+            )
+        )
+
+
+        extra_type = request.form.get(
+            "extra_type",
+            ""
+        ).strip()
+
+
+        extra_runs = int(
+            request.form.get(
+                "extra_runs",
+                0
+            )
+        )
+
+
+        wicket = (
+            request.form.get("wicket")
+            == "on"
+        )
+
+        if runs < 0 or runs > 6:
+            raise ValueError("Runs per ball must be between 0 and 6.")
+
+        if extra_runs < 0:
+            raise ValueError("Extra runs cannot be negative.")
+
+        allowed_extras = {"", "wide", "no_ball", "bye", "leg_bye"}
+        if extra_type not in allowed_extras:
+            raise ValueError("Invalid extra type.")
+
+
+        # -------------------------
+        # CHECK LEGAL BALL
+        # -------------------------
+
+        is_legal_ball = True
+
+
+        if extra_type in [
+
+            "wide",
+
+            "no_ball"
+
+        ]:
+
+            is_legal_ball = False
+
+
+        # -------------------------
+        # COUNT LEGAL BALLS
+        # -------------------------
+
+        cursor.execute("""
+            SELECT COUNT(*)
+
+            FROM deliveries
+
+            WHERE
+                match_id = %s
+
+                AND LOWER(batting_team)
+                = LOWER(%s)
+
+                AND
+                (
+                    extra_type IS NULL
+
+                    OR extra_type NOT IN
+                    (
+                        'wide',
+                        'no_ball'
+                    )
+                )
+        """, (
+
+            match_id,
+
+            batting_team
+
+        ))
+
+
+        legal_balls = cursor.fetchone()[0]
+
+
+        over_number = (
+            legal_balls // 6
+        )
+
+
+        ball_number = (
+            legal_balls % 6
+        ) + 1
+
+
+        # -------------------------
+        # SAVE DELIVERY
+        # -------------------------
+
+        cursor.execute("""
+            INSERT INTO deliveries
+            (
+
+                match_id,
+
+                batting_team,
+
+                over_number,
+
+                ball_number,
+
+                striker_id,
+
+                non_striker_id,
+
+                bowler_id,
+
+                runs,
+
+                extra_type,
+
+                extra_runs,
+
+                wicket
+
+            )
+
+            VALUES
+            (
+
+                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s
+
+            )
+        """, (
+
+            match_id,
+
+            batting_team,
+
+            over_number,
+
+            ball_number,
+
+            striker_id,
+
+            non_striker_id,
+
+            bowler_id,
+
+            runs,
+
+            extra_type if extra_type else None,
+
+            extra_runs,
+
+            wicket
+
+        ))
+
+
+        # -------------------------
+        # UPDATE PLAYER STATS
+        # -------------------------
+        cursor.execute("""
+            UPDATE players
+            SET runs = COALESCE(runs, 0) + %s
+            WHERE player_id = %s
+        """, (runs, striker_id))
+
+        if wicket:
+            cursor.execute("""
+                UPDATE players
+                SET wickets = COALESCE(wickets, 0) + 1
+                WHERE player_id = %s
+            """, (bowler_id,))
+
+        # -------------------------
+        # CALCULATE TEAM SCORE
+        # -------------------------
+
+        cursor.execute("""
+            SELECT
+
+                COALESCE(SUM(runs), 0),
+
+                COALESCE(SUM(extra_runs), 0)
+
+            FROM deliveries
+
+            WHERE
+
+                match_id = %s
+
+                AND LOWER(batting_team)
+                =
+                LOWER(%s)
+        """, (
+
+            match_id,
+
+            batting_team
+
+        ))
+
+
+        score_data = cursor.fetchone()
+
+
+        total_score = (
+
+            int(score_data[0])
+
+            +
+
+            int(score_data[1])
+
+        )
+
+
+        # -------------------------
+        # CALCULATE OVERS
+        # -------------------------
+
+        new_legal_balls = legal_balls
+
+
+        if is_legal_ball:
+
+            new_legal_balls += 1
+
+
+        completed_overs = (
+
+            new_legal_balls // 6
+
+        )
+
+
+        remaining_balls = (
+
+            new_legal_balls % 6
+
+        )
+
+
+        display_overs = float(
+
+            str(completed_overs)
+
+            +
+
+            "."
+
+            +
+
+            str(remaining_balls)
+
+        )
+
+
+        # -------------------------
+        # GET MATCH
+        # -------------------------
+
+        cursor.execute("""
+            SELECT
+
+                team1,
+
+                team2
+
+            FROM matches
+
+            WHERE match_id = %s
+        """, (
+            match_id,
+        ))
+
+
+        match_info = cursor.fetchone()
+
+
+        if not match_info:
+
+            raise Exception(
+                "Match not found."
+            )
+
+
+        team1 = match_info[0]
+
+        team2 = match_info[1]
+
+
+        # -------------------------
+        # UPDATE TEAM SCORE
+        # -------------------------
+
+        if (
+
+            batting_team.lower()
+
+            ==
+
+            team1.lower()
+
+        ):
+
+
+            cursor.execute("""
+                UPDATE matches
+
+                SET
+
+                    team1_score = %s,
+
+                    team1_overs = %s
+
+                WHERE match_id = %s
+            """, (
+
+                total_score,
+
+                display_overs,
+
+                match_id
+
+            ))
+
+
+        elif (
+
+            batting_team.lower()
+
+            ==
+
+            team2.lower()
+
+        ):
+
+
+            cursor.execute("""
+                UPDATE matches
+
+                SET
+
+                    team2_score = %s,
+
+                    team2_overs = %s
+
+                WHERE match_id = %s
+            """, (
+
+                total_score,
+
+                display_overs,
+
+                match_id
+
+            ))
+
+
+        else:
+
+            raise Exception(
+                "Invalid batting team."
+            )
+
+
+        db.commit()
+
+
+    except Exception as e:
+
+        db.rollback()
+
+        return "Error: " + str(e)
+
+
+    finally:
+
+        cursor.close()
+
+        db.close()
+
+
+    return redirect(
+
+        "/admin/live/" + str(match_id)
+
+    )
+
+
+# =====================================
+# LIVE SCORE HELPERS
+# =====================================
+
+def calculate_run_rate(runs, legal_balls):
+    try:
+        runs = float(runs or 0)
+        legal_balls = int(legal_balls or 0)
+        if legal_balls <= 0:
+            return 0.0
+        return round(runs / (legal_balls / 6), 2)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return 0.0
+
+
+def get_team_live_stats(cursor, match_id, batting_team):
+    cursor.execute("""
+        SELECT
+            COALESCE(SUM(runs), 0),
+            COALESCE(SUM(extra_runs), 0),
+            COALESCE(SUM(CASE WHEN wicket = 1 THEN 1 ELSE 0 END), 0),
+            COALESCE(SUM(
+                CASE
+                    WHEN extra_type IS NULL
+                         OR extra_type NOT IN ('wide', 'no_ball')
+                    THEN 1 ELSE 0
+                END
+            ), 0)
+        FROM deliveries
+        WHERE match_id = %s
+          AND LOWER(batting_team) = LOWER(%s)
+    """, (match_id, batting_team))
+
+    row = cursor.fetchone()
+    total_runs = int(row[0] or 0) + int(row[1] or 0)
+    wickets = int(row[2] or 0)
+    legal_balls = int(row[3] or 0)
+
+    return {
+        "runs": total_runs,
+        "wickets": wickets,
+        "legal_balls": legal_balls,
+        "overs": f"{legal_balls // 6}.{legal_balls % 6}",
+        "run_rate": calculate_run_rate(total_runs, legal_balls)
+    }
+
+
+# =====================================
+# PUBLIC LIVE SCORE
+# =====================================
+
+@app.route(
+    "/live/<int:match_id>"
+)
+def live_score(match_id):
+
+    db = get_db()
+
+    cursor = db.cursor()
+
+
+    # -------------------------
+    # MATCH DATA
+    # -------------------------
+
+    cursor.execute("""
+        SELECT
+
+            match_id,
+
+            team1,
+
+            team2,
+
+            winner,
+
+            match_date,
+
+            team1_score,
+
+            team1_overs,
+
+            team2_score,
+
+            team2_overs,
+
+            status
+
+        FROM matches
+
+        WHERE match_id = %s
+    """, (
+        match_id,
+    ))
+
+
+    match = cursor.fetchone()
+
+
+    if not match:
+
+        cursor.close()
+
+        db.close()
+
+        return "Match not found."
+
+
+    # -------------------------
+    # RECENT BALLS
+    # -------------------------
+
+    cursor.execute("""
+        SELECT
+
+            delivery_id,
+
+            over_number,
+
+            ball_number,
+
+            striker_id,
+
+            non_striker_id,
+
+            bowler_id,
+
+            runs,
+
+            extra_type,
+
+            extra_runs,
+
+            wicket,
+
+            batting_team
+
+        FROM deliveries
+
+        WHERE match_id = %s
+
+        ORDER BY delivery_id DESC
+
+        LIMIT 30
+    """, (
+        match_id,
+    ))
+
+
+    deliveries = cursor.fetchall()
+
+
+    # =================================
+    # BATTING SCORECARD
+    # =================================
+
+    cursor.execute("""
+        SELECT
+
+            p.player_id,
+
+            p.player_name,
+
+
+            COALESCE(
+                SUM(d.runs),
+                0
+            ) AS total_runs,
+
+
+            COUNT(
+
+                CASE
+
+                    WHEN
+
+                    d.extra_type IS NULL
+
+                    OR
+
+                    d.extra_type NOT IN
+                    (
+                        'wide',
+                        'no_ball'
+                    )
+
+                    THEN 1
+
+                END
+
+            ) AS balls,
+
+
+            COALESCE(
+
+                SUM(
+
+                    CASE
+
+                        WHEN d.runs = 4
+
+                        THEN 1
+
+                        ELSE 0
+
+                    END
+
+                ),
+
+                0
+
+            ) AS fours,
+
+
+            COALESCE(
+
+                SUM(
+
+                    CASE
+
+                        WHEN d.runs = 6
+
+                        THEN 1
+
+                        ELSE 0
+
+                    END
+
+                ),
+
+                0
+
+            ) AS sixes
+
+
+        FROM players p
+
+
+        INNER JOIN deliveries d
+
+        ON
+
+            p.player_id = d.striker_id
+
+
+        WHERE d.match_id = %s
+
+
+        GROUP BY
+
+            p.player_id,
+
+            p.player_name
+
+
+        ORDER BY
+
+            total_runs DESC
+
+    """, (
+        match_id,
+    ))
+
+
+    batting_scorecard = cursor.fetchall()
+
+
+    # =================================
+    # BOWLING SCORECARD
+    # =================================
+
+    cursor.execute("""
+        SELECT
+
+            p.player_id,
+
+            p.player_name,
+
+
+            COUNT(
+
+                CASE
+
+                    WHEN
+
+                    d.extra_type IS NULL
+
+                    OR
+
+                    d.extra_type NOT IN
+                    (
+                        'wide',
+                        'no_ball'
+                    )
+
+                    THEN 1
+
+                END
+
+            ) AS legal_balls,
+
+
+            COALESCE(
+
+                SUM(
+
+                    CASE
+
+                        WHEN d.extra_type IN
+                        (
+                            'bye',
+                            'leg_bye'
+                        )
+
+                        THEN d.runs
+
+                        ELSE d.runs + d.extra_runs
+
+                    END
+
+                ),
+
+                0
+
+            ) AS runs_given,
+
+
+            COALESCE(
+
+                SUM(
+
+                    CASE
+
+                        WHEN d.wicket = 1
+
+                        THEN 1
+
+                        ELSE 0
+
+                    END
+
+                ),
+
+                0
+
+            ) AS wickets
+
+
+        FROM players p
+
+
+        INNER JOIN deliveries d
+
+        ON
+
+            p.player_id = d.bowler_id
+
+
+        WHERE d.match_id = %s
+
+
+        GROUP BY
+
+            p.player_id,
+
+            p.player_name
+
+
+        ORDER BY wickets DESC
+
+    """, (
+        match_id,
+    ))
+
+
+    bowling_scorecard = cursor.fetchall()
+
+
+    # -------------------------
+    # PLAYER NAMES
+    # -------------------------
+
+    cursor.execute("""
+        SELECT
+
+            player_id,
+
+            player_name
+
+        FROM players
+    """)
+
+
+    player_rows = cursor.fetchall()
+
+
+    player_names = {
+
+        row[0]: row[1]
+
+        for row in player_rows
+
+    }
+
+
+    cursor.close()
+
+    db.close()
+
+
+    return render_template(
+
+        "live_score.html",
+
+        match=match,
+
+        deliveries=deliveries,
+
+        player_names=player_names,
+
+        batting_scorecard=batting_scorecard,
+
+        bowling_scorecard=bowling_scorecard
+
+    )
+
+
+# =====================================
+# LIVE SCORE JSON API
+# =====================================
+
+@app.route("/api/live/<int:match_id>")
+def live_score_api(match_id):
+
+    db = get_db()
+    cursor = db.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT
+                match_id, team1, team2, winner, match_date,
+                team1_score, team1_overs,
+                team2_score, team2_overs, status
+            FROM matches
+            WHERE match_id = %s
+        """, (match_id,))
+
+        match = cursor.fetchone()
+
+        if not match:
+            return {"error": "Match not found"}, 404
+
+        team1_stats = get_team_live_stats(cursor, match_id, match[1])
+        team2_stats = get_team_live_stats(cursor, match_id, match[2])
+
+        cursor.execute("""
+            SELECT
+                delivery_id, over_number, ball_number,
+                striker_id, non_striker_id, bowler_id,
+                runs, extra_type, extra_runs, wicket, batting_team
+            FROM deliveries
+            WHERE match_id = %s
+            ORDER BY delivery_id DESC
+            LIMIT 12
+        """, (match_id,))
+
+        recent_balls = []
+        for d in cursor.fetchall():
+            recent_balls.append({
+                "id": d[0],
+                "over": d[1],
+                "ball": d[2],
+                "striker_id": d[3],
+                "non_striker_id": d[4],
+                "bowler_id": d[5],
+                "runs": int(d[6] or 0),
+                "extra_type": d[7],
+                "extra_runs": int(d[8] or 0),
+                "wicket": bool(d[9]),
+                "batting_team": d[10]
+            })
+
+        return {
+            "match": {
+                "id": match[0],
+                "team1": match[1],
+                "team2": match[2],
+                "winner": match[3],
+                "date": str(match[4]) if match[4] else None,
+                "status": match[9]
+            },
+            "team1": team1_stats,
+            "team2": team2_stats,
+            "recent_balls": recent_balls
+        }
+
+    finally:
+        cursor.close()
+        db.close()
+
+
+# =====================================
+# POINTS TABLE
+# =====================================
+
+@app.route("/points")
+def points():
+
+    db = get_db()
+
+    cursor = db.cursor()
+
+
+    cursor.execute("""
+        SELECT
+
+            team_id,
+
+            teams_name,
+
+            matches,
+
+            wins,
+
+            losses,
+
+            points,
+
+            run_rate
+
+        FROM teams
+
+        ORDER BY
+
+            points DESC,
+
+            wins DESC,
+
+            run_rate DESC
+    """)
+
+
+    teams_data = cursor.fetchall()
+
+
+    cursor.close()
+
+    db.close()
+
+
+    return render_template(
+
+        "points.html",
+
+        teams=teams_data
+
+    )
+
+
+# =====================================
+# RUN APPLICATION
+# =====================================
+
+if __name__ == "__main__":
+
+    port = int(
+
+        os.environ.get(
+            "PORT",
+            5000
+        )
+
+    )
+
+
+    app.run(
+
+        host="0.0.0.0",
+
+        port=port
+
+    )
